@@ -1,52 +1,96 @@
 name: Windows build check
 
-# Runs after every push to make sure the Tauri app still compiles on Windows.
-# Uses only npm (no bun).
+# Smoke-test: verifies the app compiles on Windows after every push/PR.
+# npm-only (no bun). No release creation on non-tag pushes.
 
 on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  build-windows:
+  # 1) Fastest signal: frontend builds
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  # 2) Windows: make sure Tauri desktop still compiles
+  tauri-windows:
+    needs: frontend
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - name: Set up Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: x86_64-pc-windows-msvc
-          components: rustfmt,clippy
+          toolchain: stable
 
-      - name: Install frontend dependencies (npm)
+      # Icons are referenced by tauri.conf.json but are gitignored in src-tauri/.gitignore.
+      # Generate them from the repo logo so the Tauri resource build doesn't fail with
+      # `icons/icon.ico not found`.
+      - name: Install frontend deps (needed for tauri CLI)
         run: npm ci
+
+      - name: Generate icons from public/stickee.png
+        run: npx tauri icon public/stickee.png
+
+      - name: Lint frontend
+        run: npm run lint
 
       - name: Frontend build
         run: npm run build
 
-      - name: Tauri build (Windows bundle)
+      # For push/PR smoke test: just check the crate + bundle without creating a GitHub release.
+      # --no-bundle avoids building installer packages per PR (faster); the Tauri action still
+      # runs `cargo build` + `tauri build --no-bundle`.
+      - name: Tauri build (no installer, check-only)
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # build the full installer; if you prefer a faster smoke-test only, add `args: --no-bundle`
+          args: --no-bundle
+
+  # 3) Optional: full release only on semver tags (v*). Produces artifacts + draft release.
+  tauri-windows-release:
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Generate icons
+        run: npx tauri icon public/stickee.png
+
+      - name: Tauri build + (draft) release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
           tagName: v__VERSION__
           releaseName: "Stickee v__VERSION__"
           releaseBody: "See assets below."
           releaseDraft: true
           prerelease: false
-
-      # Uncomment to upload the Tauri artifact even when no release is created (PRs):
-      # - uses: actions/upload-artifact@v4
-      #   with:
-      #     name: windows-dist
-      #     path: |
-      #       src-tauri/target/release/bundle/
-      #       dist/
