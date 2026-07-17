@@ -41,4 +41,7 @@ Thumbs.db
 TERMS_OF_SERVICE.txt
 
 # Animated excalidraws
-excalidraw*bun.lockb
+excalidraw*
+
+# npm is the canonical package manager
+bun.lockb
