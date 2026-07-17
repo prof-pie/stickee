@@ -4,4 +4,6 @@
 /gen/schemas
 
 # Tauri generated icons
-/icons/
+# /icons/   <-- Do not ignore; required by build.rs, regenerated via `npx tauri icon <png>`
+# (was previously ignored and caused `icons/icon.ico not found` on CI)
+

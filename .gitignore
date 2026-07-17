@@ -42,3 +42,5 @@ TERMS_OF_SERVICE.txt
 
 # Animated excalidraws
 excalidraw*
+# Package manager locks — npm only
+bun.lockb
