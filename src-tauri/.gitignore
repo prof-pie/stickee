@@ -3,5 +3,5 @@
 /target/
 /gen/schemas
 
-# Tauri generated icons
-/icons/
+# icons are required at build time — don't ignore
+# /icons/  <-- removed, caused icon.ico not found on CI
