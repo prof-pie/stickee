@@ -3,5 +3,5 @@
 /target/
 /gen/schemas
 
-# icons are required at build time — don't ignore
-# /icons/  <-- removed, caused icon.ico not found on CI
+# NOTE: icons are required at build time (tauri.conf.json) — don't ignore them
+# /icons/  <-- removed: was causing `icons/icon.ico not found` on CI

@@ -7,7 +7,7 @@ import { EmojiPicker } from "./EmojiPicker";
 import { ReactionSummary } from "@/types/emojiReaction";
 import { toggleReaction } from "@/services/emojiReactionService";
 import { toast } from "sonner";
-import { LinkableText } from "./LinkableText";
+import { MarkdownContent } from "./MarkdownContent";
 import { memo } from "react";
 
 export type NoteStatus = 'To-Do' | 'Doing' | 'Done' | 'Backlog';
@@ -18,6 +18,7 @@ interface StickyNoteProps {
   content: string;
   color: string;
   status: NoteStatus;
+  tags?: string[];
   index?: number;
   lastUpdated?: number;
   pinned: boolean;
@@ -29,6 +30,7 @@ interface StickyNoteProps {
   onToggleSelect?: () => void;
   isSelected?: boolean;
   showSelectionCheckbox?: boolean;
+  fontFamily?: string;
 }
 
 const colorMap: Record<string, string> = {
@@ -51,21 +53,23 @@ const statusColors: Record<NoteStatus, string> = {
   "Backlog": "bg-gray-100 text-gray-800 border-gray-200",
 };
 
-export const StickyNote = memo(({ 
-  id, 
-  title, 
-  content, 
-  color, 
-  status, 
-  pinned, 
-  reactions = [], 
-  onClick, 
+export const StickyNote = memo(({
+  id,
+  title,
+  content,
+  color,
+  status,
+  tags = [],
+  pinned,
+  reactions = [],
+  onClick,
   onTogglePin,
   onArchive,
   onReactionUpdate,
   onToggleSelect,
   isSelected = false,
-  showSelectionCheckbox = false
+  showSelectionCheckbox = false,
+  fontFamily
 }: Omit<StickyNoteProps, 'index' | 'lastUpdated'>) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [emojiPickerPosition, setEmojiPickerPosition] = useState({ x: 0, y: 0 });
@@ -78,12 +82,6 @@ export const StickyNote = memo(({
     const direction = Math.random() < 0.5 ? -1 : 1;
     return magnitude * direction;
   }, []);
-  
-  // Limit to 13 lines (primary constraint)
-  const displayContent = useMemo(() => {
-    const lines = content.split('\n');
-    return lines.length > 13 ? lines.slice(0, 13).join('\n') + '...' : content;
-  }, [content]);
 
   const handleEmojiClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -142,7 +140,7 @@ export const StickyNote = memo(({
       >
         {/* Selection Checkbox Overlay */}
         {showSelectionCheckbox ? (
-          <div 
+          <div
             className="absolute top-2 left-2 z-10"
             onClick={(e) => {
               e.stopPropagation();
@@ -151,27 +149,39 @@ export const StickyNote = memo(({
           >
             <div className={cn(
               "w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer",
-              isSelected 
-                ? "bg-primary border-primary text-primary-foreground hover:bg-primary/90" 
+              isSelected
+                ? "bg-primary border-primary text-primary-foreground hover:bg-primary/90"
                 : "bg-background border-primary border-primary/50 hover:bg-primary/20"
             )}>
               {isSelected && <CheckSquare className="w-4 h-4" />}
             </div>
           </div>
         ) : null}
-        
+
         <div className="flex-1">
           {title && (
             <h3 className="text-foreground text-xl font-bold mb-2 font-title leading-tight">
               {title.length > 20 ? `${title.substring(0, 20)}...` : title}
             </h3>
           )}
-          <LinkableText 
-            text={displayContent}
-            className={`text-foreground text-lg leading-relaxed whitespace-pre-wrap break-words font-handwriting line-clamp-13 ${!title ? 'mt-2' : ''}`}
+          <MarkdownContent
+            content={content}
+            compact
+            className={`max-h-[16rem] overflow-hidden text-lg leading-relaxed font-handwriting ${!title ? 'mt-2' : ''}`}
+            style={fontFamily ? { fontFamily } : undefined}
           />
         </div>
-        
+
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {tags.slice(0, 3).map((tag) => (
+              <span key={tag} className="rounded-full bg-white/45 px-2 py-0.5 text-[10px] text-zinc-700">
+                #{tag}
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Reactions Section */}
         {reactions.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2 mb-2">
@@ -182,8 +192,8 @@ export const StickyNote = memo(({
                 className={cn(
                   "flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-all",
                   "hover:bg-accent active:scale-90",
-                  reaction.hasCurrentUserReacted 
-                    ? "bg-primary text-primary-foreground" 
+                  reaction.hasCurrentUserReacted
+                    ? "bg-primary text-primary-foreground"
                     : "bg-muted hover:bg-muted/80"
                 )}
               >
@@ -197,12 +207,12 @@ export const StickyNote = memo(({
             ))}
           </div>
         )}
-        
+
         <div className="flex items-center justify-between mt-2">
           <Badge variant="outline" className={cn("text-xs font-handwriting shrink-0 note-status dark:text-white", statusColors[status])}>
             {status}
           </Badge>
-          
+
           {/* Emoji Reaction Button */}
           <button
             onClick={handleEmojiClick}
@@ -212,7 +222,7 @@ export const StickyNote = memo(({
             <Smile size={16} className="text-foreground/60 hover:text-foreground emoji-react-icon" />
           </button>
         </div>
-        
+
         <button
           onClick={(e) => {
             e.stopPropagation();

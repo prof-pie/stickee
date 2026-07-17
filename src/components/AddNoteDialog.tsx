@@ -7,8 +7,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { Badge } from "@/components/ui/badge";
 import { NoteStatus } from "@/components/StickyNote";
 import { UnsavedChangesDialog } from "@/components/UnsavedChangesDialog";
@@ -16,11 +16,12 @@ import { cn } from "@/lib/utils";
 import { soundEffects } from "@/utils/soundEffects";
 import { useVoiceRecognition } from "@/hooks/useVoiceRecognition";
 import { Mic, MicOff } from "lucide-react";
+import { TagInput } from "@/components/TagInput";
 
 interface AddNoteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (title: string, content: string, status: NoteStatus, color: string) => void;
+  onSave: (title: string, content: string, status: NoteStatus, color: string, tags: string[]) => void;
 }
 
 const colors = ["yellow", "pink", "blue", "green", "purple", "orange", "teal", "lavender", "peach", "mint"];
@@ -39,6 +40,7 @@ export const AddNoteDialog = ({ open, onOpenChange, onSave }: AddNoteDialogProps
   const [content, setContent] = useState("");
   const [status, setStatus] = useState<NoteStatus>("To-Do");
   const [color, setColor] = useState(colors[0]);
+  const [tags, setTags] = useState<string[]>([]);
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const [isListening, setIsListening] = useState(false);
 
@@ -66,18 +68,20 @@ export const AddNoteDialog = ({ open, onOpenChange, onSave }: AddNoteDialogProps
       setContent("");
       setStatus("To-Do");
       setColor(colors[0]);
+      setTags([]);
     }
   };
 
   const handleSaveAndClose = () => {
     if (content.trim()) {
       soundEffects.playNewNoteSound();
-      onSave(title.trim(), content, status, color);
+      onSave(title.trim(), content, status, color, tags);
       // Reset form after successful save
       setTitle("");
       setContent("");
       setStatus("To-Do");
       setColor(colors[0]);
+      setTags([]);
       setShowUnsavedDialog(false);
       onOpenChange(false);
     }
@@ -88,27 +92,13 @@ export const AddNoteDialog = ({ open, onOpenChange, onSave }: AddNoteDialogProps
     setContent("");
     setStatus("To-Do");
     setColor(colors[0]);
+    setTags([]);
     setShowUnsavedDialog(false);
     onOpenChange(false);
   };
 
   const handleCancelUnsaved = () => {
     setShowUnsavedDialog(false);
-  };
-
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    // Limit to 1500 characters
-    if (value.length <= 1500) {
-      setContent(value);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Handle Ctrl+Enter to save
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-      handleSave();
-    }
   };
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -134,12 +124,13 @@ export const AddNoteDialog = ({ open, onOpenChange, onSave }: AddNoteDialogProps
     if (content.trim()) {
       console.log('Saving note...'); // Debug log
       soundEffects.playNewNoteSound();
-      onSave(title.trim(), content, status, color);
+      onSave(title.trim(), content, status, color, tags);
       // Reset form after successful save
       setTitle("");
       setContent("");
       setStatus("To-Do");
       setColor(colors[0]);
+      setTags([]);
       onOpenChange(false);
     } else {
       console.log('No content to save - save cancelled'); // Debug log
@@ -277,16 +268,16 @@ export const AddNoteDialog = ({ open, onOpenChange, onSave }: AddNoteDialogProps
           </div>
           <div className="order-3 sm:order-2">
             <label className="text-sm font-medium mb-2 block">Content</label>
-            <Textarea
-              placeholder="Type your note here..."
+            <MarkdownEditor
               value={content}
-              onChange={handleContentChange}
-              onKeyDown={handleKeyDown}
-              className="min-h-[150px] resize-none font-handwriting text-lg dark:text-white dark:placeholder:text-gray-400 w-full"
+              onChange={setContent}
+              maxLength={1500}
+              minHeightClassName="min-h-[180px]"
               autoFocus
+              onSaveShortcut={handleSave}
             />
             <p className="text-xs text-muted-foreground mt-2">
-              Press Ctrl+Enter to save quickly • Maximum 1500 characters
+              Markdown supported • Ctrl+B bold • Ctrl+I italic • Ctrl+K link • Ctrl+Enter save • Ctrl+Shift+P preview
             </p>
             
             {/* Voice Controls */}
@@ -377,6 +368,10 @@ export const AddNoteDialog = ({ open, onOpenChange, onSave }: AddNoteDialogProps
               ))}
             </div>
           </div>
+          <div className="order-5">
+            <label className="text-sm font-medium mb-2 block">Tags</label>
+            <TagInput tags={tags} onChange={setTags} />
+          </div>
         </div>
         <DialogFooter className="flex gap-2">
           <Button variant="outline" onClick={() => {
@@ -384,6 +379,7 @@ export const AddNoteDialog = ({ open, onOpenChange, onSave }: AddNoteDialogProps
             setContent("");
             setStatus("To-Do");
             setColor(colors[0]);
+            setTags([]);
             onOpenChange(false);
           }}>
             Cancel

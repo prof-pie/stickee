@@ -1,5 +1,15 @@
-import { useState, useEffect, Suspense } from "react";
-import { CheckSquare, Trash2, Settings, Plus, AlertCircle, Archive } from "lucide-react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
+import {
+  IconAlertCircle,
+  IconArchive,
+  IconBook2,
+  IconCheckbox,
+  IconMenu2,
+  IconPlus,
+  IconSettings,
+  IconTrash,
+  IconX,
+} from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { 
@@ -16,6 +26,7 @@ import { getReactionsForNote } from "@/services/emojiReactionService";
 import { soundEffects } from "@/utils/soundEffects";
 import type { ReactionSummary } from "@/types/emojiReaction";
 import { TermsPopup } from "@/components/TermsPopup";
+import { applyAppFont, getCssFontFamily } from "@/utils/fonts";
 import { IssueReportButton } from "@/components/IssueReportButton";
 import { IssueReportDialog } from "@/components/IssueReportDialog";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
@@ -33,6 +44,10 @@ import { NoteDetailDialog } from "@/components/NoteDetailDialog";
 import { Checklist } from "@/components/Checklist";
 import { StickyNoteWindow } from "@/components/StickyNoteWindow";
 import { ArchivedNotesDialog } from "@/components/ArchivedNotesDialog";
+import { AppSidebar, type SidebarTab } from "@/components/AppSidebar";
+import { TemplatesPanel, type NoteTemplate } from "@/components/TemplatesPanel";
+import { AutomationsPanel } from "@/components/AutomationsPanel";
+import { useAutomations } from "@/hooks/useAutomations";
 
 // Using the Note interface from types/note.ts
 
@@ -50,11 +65,19 @@ export default function Index() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [currentFont, setCurrentFont] = useState(
+    () => localStorage.getItem("stickee-font-family") || "onest"
+  );
   const [issueDialogOpen, setIssueDialogOpen] = useState(false);
   const [showTermsDialog, setShowTermsDialog] = useState(false);
   const [noteReactions, setNoteReactions] = useState<Record<string, ReactionSummary[]>>({});
   const [showMassDeleteDialog, setShowMassDeleteDialog] = useState(false);
   const [archivedNotesDialogOpen, setArchivedNotesDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<SidebarTab>("board");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth < 768;
+  });
   
   // Checklist state and handlers
   const {
@@ -65,7 +88,15 @@ export default function Index() {
     updateItem: updateChecklistItem,
     deleteItem: deleteChecklistItem,
     toggleChecklist,
+    reload: reloadChecklist,
   } = useChecklist();
+
+  // Keep a live ref of notes so the automation engine always evaluates the
+  // current board without re-subscribing on every note change.
+  const notesRef = useRef<Note[]>([]);
+  useEffect(() => {
+    notesRef.current = notes;
+  }, [notes]);
 
   // Check for terms agreement on mount and storage changes
   useEffect(() => {
@@ -91,49 +122,7 @@ export default function Index() {
   // Apply saved font preference immediately on page load
   useEffect(() => {
     const applyFontFamily = (font: string) => {
-      const root = document.documentElement;
-      let fontValue = '';
-      
-      switch (font) {
-        case "serif":
-          fontValue = 'Georgia, serif';
-          break;
-        case "sans-serif":
-          fontValue = 'Arial, sans-serif';
-          break;
-        case "monospace":
-          fontValue = 'Courier New, monospace';
-          break;
-        case "give-you-glory":
-          fontValue = '"Give You Glory", cursive';
-          break;
-        case "indie-flower":
-          fontValue = '"Indie Flower", cursive';
-          break;
-        case "onest":
-          fontValue = 'Onest, sans-serif';
-          break;
-        default:
-          // For Google Fonts, use the display name directly
-          fontValue = font.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-          break;
-      }
-      
-      // Load Google Font if needed
-      if (font !== "serif" && font !== "sans-serif" && font !== "monospace") {
-        const fontName = font.replace(/-/g, '+');
-        const existingLink = document.querySelector(`link[href*="${fontName}"]`);
-        
-        if (!existingLink) {
-          const link = document.createElement('link');
-          link.href = `https://fonts.googleapis.com/css2?family=${fontName}&display=swap`;
-          link.rel = 'stylesheet';
-          document.head.appendChild(link);
-        }
-      }
-      
-      root.style.setProperty('--font-family-base', fontValue);
-      root.style.setProperty('--font-family-handwriting', fontValue);
+      applyAppFont(font);
     };
 
     // Load and apply the most recently saved fonts
@@ -317,6 +306,24 @@ export default function Index() {
     loadNotes();
   }, []);
 
+  // Automations: client-side engine + CRUD state for the Automations tab.
+  const getNotesForAutomations = useCallback(() => notesRef.current, []);
+  const {
+    automations,
+    loading: automationsLoading,
+    loadError: automationsLoadError,
+    createAutomation,
+    updateAutomation,
+    toggleAutomation,
+    deleteAutomation,
+    runAll: runAllAutomations,
+  } = useAutomations({
+    getNotes: getNotesForAutomations,
+    onNotesChanged: loadNotes,
+    onChecklistChanged: reloadChecklist,
+    enabled: termsAgreed,
+  });
+
   // Filter notes based on search query
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -328,7 +335,8 @@ export default function Index() {
     const filtered = notes.filter(note => 
       note.content.toLowerCase().includes(query) ||
       note.status.toLowerCase().includes(query) ||
-      (note.title && note.title.toLowerCase().includes(query))
+      (note.title && note.title.toLowerCase().includes(query)) ||
+      (note.tags ?? []).some((tag) => tag.toLowerCase().includes(query))
     );
     setFilteredNotes(filtered);
   }, [searchQuery, notes]);
@@ -345,7 +353,7 @@ export default function Index() {
     }
   };
 
-  const addNote = async (title: string, content: string, status: StickyNoteStatus, color: string) => {
+  const addNote = async (title: string, content: string, status: StickyNoteStatus, color: string, tags: string[] = []) => {
     try {
       // Play new note sound immediately
       soundEffects.playNewNoteSound();
@@ -362,6 +370,7 @@ export default function Index() {
         lastUpdated: Date.now(),
         created_at: new Date().toISOString(),
         user_id: '', // Will be filled by the actual response
+        tags,
         isTemp: true // Mark as temporary
       };
       
@@ -377,7 +386,8 @@ export default function Index() {
         color,
         status,
         pinned: false,
-        lastUpdated: Date.now()
+        lastUpdated: Date.now(),
+        tags
       });
       
       // Replace the temporary note with the real one
@@ -416,13 +426,14 @@ export default function Index() {
     }
   };
 
-  const updateNote = async (id: string, title: string, content: string, status: StickyNoteStatus, color: string) => {
+  const updateNote = async (id: string, title: string, content: string, status: StickyNoteStatus, color: string, tags: string[]) => {
     try {
       const updatedNote = await updateNoteService(id, { 
         title: title || undefined,
         content, 
         status, 
-        color
+        color,
+        tags
       });
       
       if (updatedNote) {
@@ -531,7 +542,6 @@ export default function Index() {
   
   const {
     draggedItem,
-    dragOverIndex,
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
@@ -626,17 +636,51 @@ export default function Index() {
     }
   };
 
+  const handleAddTemplate = async (template: NoteTemplate) => {
+    if (!termsAgreed) {
+      toast.error("You must agree to the Terms of Service to create notes");
+      return;
+    }
+
+    // Return immediately, then add the template as a pre-filled board note.
+    setActiveTab("board");
+    await addNote(template.title, template.content, template.status, template.color);
+    toast.success(`Added "${template.title}" template to your board`);
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex">
+      <AppSidebar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+      />
+
+      <div className="flex-1 min-w-0 flex flex-col">
       {/* Header */}
-      <header className="border-b bg-card shadow-sm">
+      <header className="border-b bg-card shadow-sm sticky top-0 z-20">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 flex-shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="md:hidden border-2 border-foreground/15"
+                onClick={() => setSidebarCollapsed((c) => !c)}
+                aria-label="Toggle sidebar"
+              >
+                {sidebarCollapsed ? (
+                  <IconMenu2 stroke={2} className="h-5 w-5" />
+                ) : (
+                  <IconX stroke={2} className="h-5 w-5" />
+                )}
+              </Button>
               <img 
                 src="./stickee.png" 
                 alt="Stickee" 
@@ -677,7 +721,7 @@ export default function Index() {
                 onClick={() => setIssueDialogOpen(true)}
                 className="md:hidden flex-shrink-0"
               >
-                <AlertCircle className="h-4 w-4" />
+                <IconAlertCircle stroke={2} className="h-4 w-4" />
               </Button>
               
               {/* Select All Button - Hidden on mobile and tablet */}
@@ -697,12 +741,12 @@ export default function Index() {
                   >
                     {selectedNotes.size === filteredNotes.length ? (
                       <>
-                        <CheckSquare className="h-4 w-4 mr-2" />
+                        <IconCheckbox stroke={2} className="h-4 w-4 mr-2" />
                         Deselect All
                       </>
                     ) : (
                       <>
-                        <CheckSquare className="h-4 w-4 mr-2" />
+                        <IconCheckbox stroke={2} className="h-4 w-4 mr-2" />
                         Select All ({filteredNotes.length})
                       </>
                     )}
@@ -718,7 +762,7 @@ export default function Index() {
                   onClick={() => setArchivedNotesDialogOpen(true)}
                   className="hidden md:flex"
                 >
-                  <Archive className="h-4 w-4 mr-2" />
+                  <IconArchive stroke={2} className="h-4 w-4 mr-2" />
                   Archived Notes
                 </Button>
               )}
@@ -733,7 +777,7 @@ export default function Index() {
                     onClick={() => setShowMassDeleteDialog(true)}
                     className="bg-red-500 hover:bg-red-600 flex-shrink-0"
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
+                    <IconTrash stroke={2} className="h-4 w-4 mr-2" />
                     <span className="hidden sm:inline">Delete ({selectedNotes.size})</span>
                     <span className="sm:hidden">({selectedNotes.size})</span>
                   </Button>
@@ -742,7 +786,24 @@ export default function Index() {
               
               <div className="h-6 w-px bg-border hidden md:block"></div>
               
-              {/* Issue Report Button - Hidden on mobile */}
+              {/* Documentation and issue links - Hidden on mobile */}
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="hidden md:flex flex-1 md:flex-none"
+              >
+                <a
+                  href="https://stickee.mintlify.app/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Open Stickee Docs in a new tab"
+                >
+                  <IconBook2 stroke={2} className="h-4 w-4 mr-2" />
+                  Docs
+                </a>
+              </Button>
+
               <IssueReportButton 
                 size="sm"
                 className="hidden md:flex flex-1 md:flex-none"
@@ -755,7 +816,7 @@ export default function Index() {
                 onClick={() => setSettingsOpen(true)}
                 className="hidden md:flex"
               >
-                <Settings className="h-5 w-5" />
+                <IconSettings stroke={2} className="h-5 w-5" />
               </Button>
               
               <Button
@@ -772,14 +833,32 @@ export default function Index() {
                 disabled={!termsAgreed}
                 className="bg-primary hover:bg-primary/90 flex-shrink-0"
               >
-                <Plus className="h-5 w-5" />
+                <IconPlus stroke={2} className="h-5 w-5" />
               </Button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Board */}
+      {/* Main content */}
+      {activeTab === "templates" ? (
+        <TemplatesPanel
+          onAddTemplate={handleAddTemplate}
+          disabled={!termsAgreed}
+        />
+      ) : activeTab === "automations" ? (
+        <AutomationsPanel
+          automations={automations}
+          loading={automationsLoading}
+          loadError={automationsLoadError}
+          disabled={!termsAgreed}
+          onCreate={createAutomation}
+          onUpdate={updateAutomation}
+          onToggle={toggleAutomation}
+          onDelete={deleteAutomation}
+          onRunAll={runAllAutomations}
+        />
+      ) : (
       <main className="container mx-auto px-4 py-8">
         {filteredNotes.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[80vh] text-center">
@@ -821,6 +900,7 @@ export default function Index() {
                 content={note.content}
                 color={note.color}
                 status={note.status}
+                tags={note.tags}
                 pinned={note.pinned}
                 reactions={noteReactions[note.id] || []}
                 onReactionUpdate={(reactions) => handleReactionUpdate(note.id, reactions)}
@@ -830,6 +910,7 @@ export default function Index() {
                 onToggleSelect={() => handleToggleSelect(note.id)}
                 isSelected={selectedNotes.has(note.id)}
                 showSelectionCheckbox={selectedNotes.size > 0}
+                fontFamily={getCssFontFamily(currentFont)}
               />
             ))}
             {/* Unpinned notes - draggable */}
@@ -846,16 +927,13 @@ export default function Index() {
                   draggedItem?.index === index ? "opacity-50" : ""
                 )}
               >
-                {/* Drop indicator line */}
-                {dragOverIndex === index && (
-                  <div className="absolute left-2 top-0 bottom-0 w-1 bg-primary rounded-full transition-all duration-200 z-10" />
-                )}
                 <StickyNote
                   id={note.id}
                   title={note.title}
                   content={note.content}
                   color={note.color}
                   status={note.status}
+                  tags={note.tags}
                   pinned={note.pinned}
                   reactions={noteReactions[note.id] || []}
                   onReactionUpdate={(reactions) => handleReactionUpdate(note.id, reactions)}
@@ -865,12 +943,14 @@ export default function Index() {
                   onToggleSelect={() => handleToggleSelect(note.id)}
                   isSelected={selectedNotes.has(note.id)}
                   showSelectionCheckbox={selectedNotes.size > 0}
+                  fontFamily={getCssFontFamily(currentFont)}
                 />
               </div>
             ))}
           </div>
         )}
       </main>
+      )}
 
       {/* Add Note Dialog */}
       <AddNoteDialog
@@ -905,6 +985,7 @@ export default function Index() {
       <SettingsDialog 
         open={settingsOpen} 
         onOpenChange={setSettingsOpen}
+        onFontChange={setCurrentFont}
       />
       
       <StickyNoteWindow
@@ -949,6 +1030,7 @@ export default function Index() {
       {/* Version Display */}
       <div className="fixed bottom-4 left-4 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded shadow-sm" style={{ fontFamily: 'var(--font-family-handwriting)' }}>
         Version 2.0.0
+      </div>
       </div>
     </div>
   );

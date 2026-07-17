@@ -209,6 +209,26 @@ All colors MUST be HSL.
     background-color: transparent !important;
   }
 
+  /* Template cards stay paper-like in dark mode; hover only lightens the button. */
+  .dark .template-use-button {
+    background-color: rgb(255 255 255 / 0.65) !important;
+    color: rgb(24 24 27) !important;
+  }
+
+  .dark .template-use-button:hover {
+    background-color: rgb(255 255 255 / 0.9) !important;
+  }
+
+  /* Automations tab buttons: lighten on hover in dark mode instead of the
+     global rule fading them to fully transparent. */
+  .dark .automation-button:hover {
+    background-color: hsl(var(--muted)) !important;
+  }
+
+  .dark .automation-button-primary:hover {
+    background-color: hsl(var(--primary) / 0.85) !important;
+  }
+
   .no-select {
     -webkit-user-select: none;
     -moz-user-select: none;
@@ -222,6 +242,72 @@ All colors MUST be HSL.
     -webkit-line-clamp: 13;
     -webkit-box-orient: vertical;
     overflow: hidden;
+  }
+
+  .markdown-content > * + * {
+    margin-top: 0.75rem;
+  }
+
+  .markdown-content h1,
+  .markdown-content h2,
+  .markdown-content h3 {
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .markdown-content h1 { font-size: 1.5em; }
+  .markdown-content h2 { font-size: 1.3em; }
+  .markdown-content h3 { font-size: 1.15em; }
+
+  .markdown-content ul {
+    list-style-type: disc;
+    padding-left: 1.25rem;
+  }
+
+  .markdown-content ol {
+    list-style-type: decimal;
+    padding-left: 1.25rem;
+  }
+
+  .markdown-content ul.contains-task-list {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .markdown-content blockquote {
+    border-left: 3px solid currentColor;
+    opacity: 0.8;
+    padding-left: 0.75rem;
+  }
+
+  .markdown-content code {
+    border-radius: 0.25rem;
+    background: rgb(255 255 255 / 0.5);
+    padding: 0.1rem 0.3rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.85em;
+  }
+
+  .markdown-content pre {
+    overflow-x: auto;
+    border-radius: 0.375rem;
+    background: rgb(0 0 0 / 0.78);
+    color: white;
+    padding: 0.75rem;
+  }
+
+  .markdown-content pre code {
+    background: transparent;
+    padding: 0;
+  }
+
+  .markdown-content hr {
+    border-color: currentColor;
+    opacity: 0.25;
+  }
+
+  .markdown-content-compact > * + * {
+    margin-top: 0.35rem;
   }
 }
 
