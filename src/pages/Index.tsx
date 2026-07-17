@@ -2,6 +2,7 @@ import { useState, useEffect, Suspense } from "react";
 import {
   IconAlertCircle,
   IconArchive,
+  IconBook2,
   IconCheckbox,
   IconMenu2,
   IconPlus,
@@ -509,7 +510,6 @@ export default function Index() {
   
   const {
     draggedItem,
-    dragOverIndex,
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
@@ -754,7 +754,24 @@ export default function Index() {
               
               <div className="h-6 w-px bg-border hidden md:block"></div>
               
-              {/* Issue Report Button - Hidden on mobile */}
+              {/* Documentation and issue links - Hidden on mobile */}
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="hidden md:flex flex-1 md:flex-none"
+              >
+                <a
+                  href="https://stickee.mintlify.app/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Open Stickee Docs in a new tab"
+                >
+                  <IconBook2 stroke={2} className="h-4 w-4 mr-2" />
+                  Docs
+                </a>
+              </Button>
+
               <IssueReportButton 
                 size="sm"
                 className="hidden md:flex flex-1 md:flex-none"
@@ -865,10 +882,6 @@ export default function Index() {
                   draggedItem?.index === index ? "opacity-50" : ""
                 )}
               >
-                {/* Drop indicator line */}
-                {dragOverIndex === index && (
-                  <div className="absolute left-2 top-0 bottom-0 w-1 bg-primary rounded-full transition-all duration-200 z-10" />
-                )}
                 <StickyNote
                   id={note.id}
                   title={note.title}
