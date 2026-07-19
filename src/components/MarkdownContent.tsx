@@ -34,6 +34,7 @@ export function MarkdownContent({
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        breaks
         components={{
           a: ({ href, children }) => (
             <a

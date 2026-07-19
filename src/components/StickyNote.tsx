@@ -170,6 +170,7 @@ export const StickyNote = memo(({
           >
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
+              breaks
             >
               {content}
             </ReactMarkdown>
