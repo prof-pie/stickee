@@ -9,6 +9,7 @@ import { toggleReaction } from "@/services/emojiReactionService";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 import { memo } from "react";
 
 export type NoteStatus = 'To-Do' | 'Doing' | 'Done' | 'Backlog';
@@ -169,8 +170,7 @@ export const StickyNote = memo(({
             style={fontFamily ? { fontFamily } : undefined}
           >
             <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              breaks
+              remarkPlugins={[remarkGfm, remarkBreaks]}
             >
               {content}
             </ReactMarkdown>

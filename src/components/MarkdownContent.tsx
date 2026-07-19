@@ -1,6 +1,7 @@
 import type { CSSProperties, MouseEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 import { cn } from "@/lib/utils";
 import { openLinkInBrowser } from "@/utils/linkUtils";
 
@@ -33,8 +34,7 @@ export function MarkdownContent({
       style={style}
     >
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        breaks
+        remarkPlugins={[remarkGfm, remarkBreaks]}
         components={{
           a: ({ href, children }) => (
             <a
