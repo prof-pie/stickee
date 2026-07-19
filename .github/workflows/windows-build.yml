@@ -1,0 +1,35 @@
+name: Windows build check
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name != 'pull_request' }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - run: npm ci
+      - run: npm run build
+
+      # Fast compile check (no linking) — verifies desktop app still compiles on Windows
+      - name: Tauri crate compiles
+        working-directory: src-tauri
+        run: cargo check
