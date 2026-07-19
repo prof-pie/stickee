@@ -165,12 +165,11 @@ export const StickyNote = memo(({
             </h3>
           )}
           <div
-            className={`overflow-hidden max-h-[16rem] ${!title ? 'mt-2' : ''}`}
+            className={`overflow-hidden max-h-[16rem] text-foreground text-lg leading-relaxed font-handwriting [&>*+*]:mt-2 ${!title ? 'mt-2' : ''}`}
+            style={fontFamily ? { fontFamily } : undefined}
           >
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
-              className="text-foreground text-lg leading-relaxed font-handwriting [&>*+*]:mt-2"
-              style={fontFamily ? { fontFamily } : undefined}
             >
               {content}
             </ReactMarkdown>
